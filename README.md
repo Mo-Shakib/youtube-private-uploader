@@ -16,6 +16,7 @@ Upload individual videos or entire directories directly from your terminal. The 
 - 🧾 **Upload History:** Records successful uploads in a local SQLite database.
 - ⏭️ **Duplicate Detection:** Skips videos already uploaded with the current OAuth grant, even after a rename or move.
 - ⌨️ **Interactive Menu:** Run without arguments to select actions with arrow keys.
+- 📺 **Optional Playlists:** Choose an owned playlist or create a private playlist for a batch.
 - 💻 **Cross-Platform:** Compatible with macOS, Linux, and Windows.
 
 ## Requirements
@@ -105,9 +106,11 @@ youtube-private-uploader/
 ├── ytupload.py           # Recommended command-line entry point
 ├── upload.py             # Upload implementation and original command
 ├── history.py             # Local history and duplicate detection
+├── playlists.py           # Optional playlist access
 ├── requirements.txt      # Python dependencies
 ├── client_secret.json    # Google OAuth client credentials
 ├── token.json            # Generated automatically
+├── playlist_token.json   # Generated only when playlist access is authorized
 ├── .venv/                # Python virtual environment
 ├── .gitignore
 ├── LICENSE
@@ -158,9 +161,24 @@ Vacation/
 
 All supported video files directly inside the specified directory will be uploaded individually.
 
+### Add uploads to a playlist
+
+The interactive menu asks whether to use no playlist, choose one owned by the authorized channel, or create a new **private** playlist. A selected playlist is used for every video in the batch. The tool also adds previously uploaded videos it skips, without uploading those videos again.
+
+For direct commands, use one of:
+
+```bash
+python3 ytupload.py ~/Movies/Vacation --playlist-id PLAYLIST_ID
+python3 ytupload.py ~/Movies/Vacation --new-playlist "Vacation 2026"
+```
+
+Playlist additions are reported separately from uploads. If an addition fails, the successful video upload stays in local history; rerun the same command to retry adding it without reuploading it. The tool checks whether each video is already in the playlist before adding it.
+
+Playlist access uses a separate `playlist_token.json` and requires the `https://www.googleapis.com/auth/youtube.force-ssl` scope in your Google Cloud OAuth Data Access settings. Google will ask you to authorize this broader permission the first time you select a playlist. Ordinary uploads continue using `token.json` and the original `youtube.upload` permission. Keep both token files private.
+
 ### Interactive menu and history
 
-Run `python3 ytupload.py` in a terminal to select **Upload a video**, **Upload a folder**, **View upload history**, **Export history as Markdown**, or **Reset upload history** with the arrow keys. The path-based commands above still work without the menu.
+Run `python3 ytupload.py` in a terminal to select **Upload a video**, **Upload a folder**, **View upload history**, **Export history as Markdown**, or **Reset upload history** with the arrow keys. After choosing an upload, you can select a playlist. The path-based commands above still work without the menu.
 
 The original `python3 upload.py` command still works. `ytupload.py` runs the same implementation through a shorter entry point.
 
@@ -300,6 +318,7 @@ Keep the following files private:
 
 - `client_secret.json`: Contains Google OAuth client configuration.
 - `token.json`: Contains access and refresh tokens.
+- `playlist_token.json`: Contains tokens for the broader optional playlist permission.
 
 ### Recommended .gitignore
 
