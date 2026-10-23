@@ -102,7 +102,8 @@ https://www.googleapis.com/auth/youtube.upload
 
 ```text
 youtube-private-uploader/
-├── upload.py
+├── ytupload.py           # Recommended command-line entry point
+├── upload.py             # Upload implementation and original command
 ├── history.py             # Local history and duplicate detection
 ├── requirements.txt      # Python dependencies
 ├── client_secret.json    # Google OAuth client credentials
@@ -120,13 +121,13 @@ The `token.json` file is automatically generated after your first successful aut
 ### Upload a single video
 
 ```bash
-python3 upload.py video.mp4
+python3 ytupload.py video.mp4
 ```
 
 You can also provide an absolute path:
 
 ```bash
-python3 upload.py ~/Movies/vacation.mp4
+python3 ytupload.py ~/Movies/vacation.mp4
 ```
 
 The filename becomes the YouTube title.
@@ -142,7 +143,7 @@ Visibility: Private
 ### Upload an entire directory
 
 ```bash
-python3 upload.py ~/Movies/Vacation
+python3 ytupload.py ~/Movies/Vacation
 ```
 
 Example directory:
@@ -159,16 +160,18 @@ All supported video files directly inside the specified directory will be upload
 
 ### Interactive menu and history
 
-Run `python3 upload.py` in a terminal to select **Upload a video**, **Upload a folder**, or **View upload history** with the arrow keys. The path-based commands above still work without the menu.
+Run `python3 ytupload.py` in a terminal to select **Upload a video**, **Upload a folder**, or **View upload history** with the arrow keys. The path-based commands above still work without the menu.
+
+The original `python3 upload.py` command still works. `ytupload.py` runs the same implementation through a shorter entry point.
 
 To view recent uploads directly:
 
 ```bash
-python3 upload.py --history
-python3 upload.py --history --limit 50
+python3 ytupload.py --history
+python3 ytupload.py --history --limit 50
 ```
 
-After a successful upload, the tool records the file's SHA-256 fingerprint, name, path, upload time, YouTube video ID, and URL. On later runs, it skips matching file contents and prints the existing URL. A changed file can be uploaded again. To intentionally upload an unchanged file again, use `python3 upload.py --force video.mp4`.
+After a successful upload, the tool records the file's SHA-256 fingerprint, name, path, upload time, YouTube video ID, and URL. On later runs, it skips matching file contents and prints the existing URL. A changed file can be uploaded again. To intentionally upload an unchanged file again, use `python3 ytupload.py --force video.mp4`.
 
 History is stored outside the repository: `~/Library/Application Support/youtube-private-uploader/history.db` on macOS, `%APPDATA%\youtube-private-uploader\history.db` on Windows, or `${XDG_DATA_HOME:-~/.local/share}/youtube-private-uploader/history.db` on Linux. Set `YTUPLOAD_HISTORY_DB` to use another path. Back up this file if you want to preserve the history. It stores no video contents or OAuth tokens.
 
@@ -212,7 +215,7 @@ rm token.json
 Run the uploader again:
 
 ```bash
-python3 upload.py video.mp4
+python3 ytupload.py video.mp4
 ```
 
 Google will request authorization again.
