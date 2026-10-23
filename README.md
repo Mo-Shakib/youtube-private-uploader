@@ -13,6 +13,9 @@ Upload individual videos or entire directories directly from your terminal. The 
 - 📊 **Upload Progress:** Displays upload progress in the terminal.
 - ✅ **Upload Reports:** Shows successful and failed uploads.
 - 🔗 **Video Links:** Returns a YouTube URL for each successful upload.
+- 🧾 **Upload History:** Records successful uploads in a local SQLite database.
+- ⏭️ **Duplicate Detection:** Skips videos already uploaded with the current OAuth grant, even after a rename or move.
+- ⌨️ **Interactive Menu:** Run without arguments to select actions with arrow keys.
 - 💻 **Cross-Platform:** Compatible with macOS, Linux, and Windows.
 
 ## Requirements
@@ -100,6 +103,7 @@ https://www.googleapis.com/auth/youtube.upload
 ```text
 youtube-private-uploader/
 ├── upload.py
+├── history.py             # Local history and duplicate detection
 ├── requirements.txt      # Python dependencies
 ├── client_secret.json    # Google OAuth client credentials
 ├── token.json            # Generated automatically
@@ -152,6 +156,23 @@ Vacation/
 ```
 
 All supported video files directly inside the specified directory will be uploaded individually.
+
+### Interactive menu and history
+
+Run `python3 upload.py` in a terminal to select **Upload a video**, **Upload a folder**, or **View upload history** with the arrow keys. The path-based commands above still work without the menu.
+
+To view recent uploads directly:
+
+```bash
+python3 upload.py --history
+python3 upload.py --history --limit 50
+```
+
+After a successful upload, the tool records the file's SHA-256 fingerprint, name, path, upload time, YouTube video ID, and URL. On later runs, it skips matching file contents and prints the existing URL. A changed file can be uploaded again. To intentionally upload an unchanged file again, use `python3 upload.py --force video.mp4`.
+
+History is stored outside the repository: `~/Library/Application Support/youtube-private-uploader/history.db` on macOS, `%APPDATA%\youtube-private-uploader\history.db` on Windows, or `${XDG_DATA_HOME:-~/.local/share}/youtube-private-uploader/history.db` on Linux. Set `YTUPLOAD_HISTORY_DB` to use another path. Back up this file if you want to preserve the history. It stores no video contents or OAuth tokens.
+
+Only successful uploads made by this version of the tool are recorded. Existing YouTube videos and uploads made before this feature are not discovered automatically. Duplicate checks are scoped to the current OAuth grant; reauthorizing may create a new history profile. If an upload reaches YouTube but the result is lost to a network error, check YouTube Studio before rerunning it.
 
 ### Supported file extensions
 
@@ -298,8 +319,6 @@ Never share your authentication tokens or commit them to version control.
 
 The current implementation has a few limitations:
 
-- No duplicate upload detection.
-- No persistent upload history.
 - No automatic retries after failed uploads.
 - No persistent resumable session recovery after restarting the script.
 - Directory uploads are not recursive.
@@ -344,8 +363,8 @@ Open **YouTube Studio → Content** to view uploaded private videos.
 
 Potential future improvements:
 
-- [ ] SQLite-based upload history
-- [ ] Duplicate video detection
+- [x] SQLite-based upload history
+- [x] Duplicate video detection
 - [ ] Automatic retry mechanism
 - [ ] Persistent resumable uploads
 - [ ] Recursive directory uploads
