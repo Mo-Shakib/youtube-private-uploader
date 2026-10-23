@@ -51,17 +51,19 @@ This is the permission used by ordinary private uploads.
 4. Download its JSON credentials file. It may have a name such as `client_secret_123456.json`.
 5. Rename that downloaded file to **`client_secret.json`** and place it in the project folder beside `ytupload.py`.
 
-The folder should look like this:
+The important files should be together like this (other project files are omitted):
 
 ```text
 youtube-private-uploader/
 ├── client_secret.json
 ├── ytupload.py
 ├── upload.py
+├── playlists.py
+├── history.py
 └── requirements.txt
 ```
 
-Keep the JSON file private. It is already listed in this project's `.gitignore`.
+The uploader creates `token.json` after upload authorization and `playlist_token.json` after playlist authorization. Neither exists in a fresh clone. Keep the credential and token files private; they are listed in this project's `.gitignore`.
 
 ## 6. Add playlist permission (optional)
 
