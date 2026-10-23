@@ -99,6 +99,41 @@ class UploadHistoryTests(unittest.TestCase):
         self.assertNotIn(long_name, output.getvalue())
         self.assertEqual(sum(line.startswith("| ") for line in lines), 2)
 
+    def test_markdown_export_includes_all_rows_and_escapes_table_cells(self):
+        export_path = Path(self.temp.name) / "upload-history.md"
+        db = history.open_database()
+        try:
+            first = Path(self.temp.name) / ("A" * 51 + "|.mp4")
+            second = Path(self.temp.name) / "second.mp4"
+            history.record_upload(db, "profile-key", first, "hash-a", 1, "first-id")
+            history.record_upload(db, "profile-key", second, "hash-b", 1, "second-id")
+        finally:
+            db.close()
+
+        with patch.object(history, "EXPORT_FILE", export_path):
+            path, count = history.export_history()
+        content = path.read_text()
+        self.assertEqual(count, 2)
+        self.assertTrue(content.startswith("# YouTube Private Uploader — Upload History\n"))
+        self.assertIn("| Uploaded | Title (filename) | YouTube URL | Profile |", content)
+        self.assertIn("https://youtu.be/first-id", content)
+        self.assertIn("https://youtu.be/second-id", content)
+        self.assertIn("A" * 50 + ".....", content)
+        self.assertNotIn("A" * 51, content)
+        self.assertRegex(content.splitlines()[-1], r"^\*\*Exported:\*\* \d{1,2} [A-Za-z]+ \d{4} at \d{1,2}:\d{2} (AM|PM) \(UTC[+-]\d{2}:\d{2}\)$")
+        self.assertEqual(list(Path(self.temp.name).glob(".upload-history-*.tmp")), [])
+
+        db = history.open_database()
+        try:
+            pipe_name = Path(self.temp.name) / "video|part.mp4"
+            history.record_upload(db, "profile-key", pipe_name, "hash-c", 1, "third-id")
+        finally:
+            db.close()
+        with patch.object(history, "EXPORT_FILE", export_path):
+            history.export_history()
+        self.assertIn("video\\|part.mp4", export_path.read_text())
+        self.assertEqual(export_path.read_text().count("https://youtu.be/second-id"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

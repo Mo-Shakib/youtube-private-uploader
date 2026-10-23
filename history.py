@@ -4,8 +4,11 @@ import hashlib
 import os
 import sqlite3
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+EXPORT_FILE = Path(__file__).resolve().parent / "upload-history.md"
 
 
 def database_path():
@@ -93,15 +96,34 @@ def record_upload(db, account_key, path, sha256, size_bytes, video_id):
     db.commit()
 
 
-def show_history(limit=20):
+def history_rows(limit=None):
     db = open_database()
     try:
-        rows = db.execute("""
-            SELECT uploaded_at, file_name, video_id, account_key
-            FROM uploads ORDER BY id DESC LIMIT ?
-        """, (limit,)).fetchall()
+        query = """SELECT uploaded_at, file_name, video_id, account_key
+                   FROM uploads ORDER BY id DESC"""
+        if limit is None:
+            return db.execute(query).fetchall()
+        return db.execute(query + " LIMIT ?", (limit,)).fetchall()
     finally:
         db.close()
+
+
+def display_name(file_name):
+    name = file_name.replace("\n", " ").replace("\r", " ")
+    return name[:50] + "....." if len(name) > 50 else name
+
+
+def export_time_label():
+    now = datetime.now().astimezone()
+    hour = now.hour % 12 or 12
+    period = "AM" if now.hour < 12 else "PM"
+    offset = now.strftime("%z")
+    return (f"{now.day} {now.strftime('%B')} {now.year} at "
+            f"{hour}:{now.minute:02d} {period} (UTC{offset[:3]}:{offset[3:]})")
+
+
+def show_history(limit=20):
+    rows = history_rows(limit)
     if not rows:
         print("No uploads recorded yet.")
         return
@@ -117,8 +139,35 @@ def show_history(limit=20):
     print(border)
     for uploaded_at, file_name, video_id, account_key in rows:
         date = datetime.fromisoformat(uploaded_at).astimezone().strftime("%Y-%m-%d %H:%M")
-        display_name = file_name.replace("\n", " ").replace("\r", " ")
-        if len(display_name) > 50:
-            display_name = display_name[:50] + "....."
-        print_row((date, display_name, f"https://youtu.be/{video_id}", account_key[:8]))
+        print_row((date, display_name(file_name), f"https://youtu.be/{video_id}", account_key[:8]))
         print(border)
+
+
+def export_history():
+    rows = history_rows()
+    lines = [
+        "# YouTube Private Uploader — Upload History",
+        "",
+        "| Uploaded | Title (filename) | YouTube URL | Profile |",
+        "| --- | --- | --- | --- |",
+    ]
+    for uploaded_at, file_name, video_id, account_key in rows:
+        date = datetime.fromisoformat(uploaded_at).astimezone().strftime("%Y-%m-%d %H:%M")
+        title = display_name(file_name).replace("\\", "\\\\").replace("|", "\\|")
+        url = f"https://youtu.be/{video_id}"
+        lines.append(f"| {date} | {title} | [{url}]({url}) | {account_key[:8]} |")
+    if not rows:
+        lines.extend(("", "No uploads recorded yet."))
+    lines.extend(("", f"**Exported:** {export_time_label()}"))
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=EXPORT_FILE.parent,
+                                         prefix=".upload-history-", suffix=".tmp", delete=False) as output:
+            temp_path = Path(output.name)
+            output.write("\n".join(lines) + "\n")
+        os.replace(temp_path, EXPORT_FILE)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+    return EXPORT_FILE, len(rows)

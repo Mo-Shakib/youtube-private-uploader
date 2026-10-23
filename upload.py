@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-from history import credential_key, find_duplicate, fingerprint, open_database, record_upload, show_history
+from history import credential_key, export_history, find_duplicate, fingerprint, open_database, record_upload, show_history
 
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -187,6 +187,16 @@ def normalize_interactive_path(value):
     return value
 
 
+def run_export():
+    try:
+        path, count = export_history()
+    except (OSError, sqlite3.Error) as error:
+        print(f"Could not export history: {error}")
+        return 1
+    print(f"Exported {count} upload(s) to {path}")
+    return 0
+
+
 def interactive_menu():
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         print("A path or --history is required when running without a terminal.")
@@ -200,7 +210,8 @@ def interactive_menu():
     while True:
         choice = questionary.select(
             "What would you like to do?",
-            choices=["Upload a video", "Upload a folder", "View upload history", "Exit"]
+            choices=["Upload a video", "Upload a folder", "View upload history",
+                     "Export history as Markdown", "Exit"]
         ).ask()
         if choice in (None, "Exit"):
             return 0
@@ -209,6 +220,9 @@ def interactive_menu():
                 show_history()
             except (OSError, sqlite3.Error) as error:
                 print(f"Could not read history: {error}")
+            continue
+        if choice == "Export history as Markdown":
+            run_export()
             continue
         path = questionary.text("Path to video:" if choice == "Upload a video" else "Path to folder:").ask()
         if path:
@@ -219,12 +233,17 @@ def main():
     parser = argparse.ArgumentParser(description="Upload videos privately to YouTube")
     parser.add_argument("path", nargs="?", help="Video file or directory")
     parser.add_argument("--history", action="store_true", help="Show recent uploads")
+    parser.add_argument("--export-history", action="store_true", help="Export all history to upload-history.md")
     parser.add_argument("--limit", type=int, default=20, help="History rows to show (default: 20)")
     parser.add_argument("--force", action="store_true", help="Upload even if already in history")
     args = parser.parse_args()
 
     if args.limit < 1:
         parser.error("--limit must be at least 1")
+    if args.export_history:
+        if args.history or args.path or args.force:
+            parser.error("--export-history cannot be combined with --history, a path, or --force")
+        return run_export()
     if args.history:
         if args.path or args.force:
             parser.error("--history cannot be combined with a path or --force")

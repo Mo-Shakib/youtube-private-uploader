@@ -1,6 +1,7 @@
 # Authentication
 client_secret.json
 token.json
+upload-history.md
 
 # Virtual environment
 .venv/
