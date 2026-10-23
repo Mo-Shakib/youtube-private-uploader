@@ -73,10 +73,11 @@ class UploadHistoryTests(unittest.TestCase):
              patch.object(questionary, "select") as select, \
              patch.object(questionary, "text") as text, \
              patch.object(upload, "run_upload") as run:
-            select.return_value.ask.side_effect = ["Upload a video", "Exit"]
+            select.return_value.ask.side_effect = ["Upload a video", "No playlist", "Exit"]
             text.return_value.ask.return_value = f"'{path}'"
             self.assertEqual(upload.interactive_menu(), 0)
-            run.assert_called_once_with(path)
+            run.assert_called_once_with(path, playlist_id=None,
+                                        new_playlist=None, playlist_client=None)
 
     def test_menu_reset_prompts_for_delete(self):
         with patch.object(upload.sys.stdin, "isatty", return_value=True), \

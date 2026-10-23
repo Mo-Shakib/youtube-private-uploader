@@ -10,6 +10,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 from history import credential_key, export_history, find_duplicate, fingerprint, open_database, record_upload, reset_history, show_history
+from playlists import authenticate as authenticate_playlists
+from playlists import authorized_channel, create_private_playlist, ensure_video_in_playlist, owned_playlists, recorded_videos_match_channel
 
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -91,7 +93,7 @@ def upload_video(youtube, file_path):
     return video_id
 
 
-def run_upload(path, force=False):
+def run_upload(path, force=False, playlist_id=None, new_playlist=None, playlist_client=None):
     path = Path(path).expanduser()
 
     if not path.exists():
@@ -124,9 +126,55 @@ def run_upload(path, force=False):
         print(f"Authentication failed: {error}")
         return 1
 
+    playlist_channel_verified = False
+    playlist_channel_mismatch = False
+    if playlist_id or new_playlist:
+        try:
+            playlist_client = playlist_client or authenticate_playlists()
+            channel = authorized_channel(playlist_client)
+            recent_ids = [row[0] for row in history.execute(
+                "SELECT video_id FROM uploads WHERE account_key = ? ORDER BY id DESC LIMIT 5",
+                (account_key,)
+            ).fetchall()]
+            if not recorded_videos_match_channel(playlist_client, channel["id"], recent_ids):
+                raise ValueError("Playlist authorization does not match the channel used for recorded uploads")
+            playlist_channel_verified = bool(recent_ids)
+            print(f"Playlist channel: {channel.get('snippet', {}).get('title', channel['id'])}")
+            if new_playlist and playlist_channel_verified:
+                playlist_id = create_private_playlist(playlist_client, new_playlist)
+                print(f"Created private playlist: https://www.youtube.com/playlist?list={playlist_id}")
+            elif playlist_id and playlist_id not in {item["id"] for item in owned_playlists(playlist_client)}:
+                raise ValueError("Playlist was not found among playlists owned by this channel")
+        except Exception as error:
+            history.close()
+            print(f"Playlist setup failed: {error}")
+            return 1
+
+    def add_to_playlist(video_id):
+        nonlocal playlist_id, playlist_channel_verified, playlist_channel_mismatch
+        try:
+            if not playlist_channel_verified:
+                if not recorded_videos_match_channel(playlist_client, channel["id"], [video_id]):
+                    playlist_channel_mismatch = True
+                    raise ValueError("Playlist authorization cannot access the new upload on this channel")
+                playlist_channel_verified = True
+            if new_playlist and not playlist_id:
+                playlist_id = create_private_playlist(playlist_client, new_playlist)
+                print(f"Created private playlist: https://www.youtube.com/playlist?list={playlist_id}")
+            if ensure_video_in_playlist(playlist_client, playlist_id, video_id):
+                print(f"Added to playlist: https://www.youtube.com/playlist?list={playlist_id}")
+                return 1, 0
+            print("Already in playlist")
+            return 0, 0
+        except Exception as error:
+            print(f"Could not add video {video_id} to playlist: {error}")
+            return 0, 1
+
     successful = 0
     skipped = 0
     failed = 0
+    playlist_added = 0
+    playlist_failed = 0
 
     try:
         for video in videos:
@@ -141,6 +189,12 @@ def run_upload(path, force=False):
                     print(f"URL: https://youtu.be/{duplicate[0]}")
                     skipped += 1
                     history.commit()
+                    if playlist_id or new_playlist:
+                        added, error = add_to_playlist(duplicate[0])
+                        playlist_added += added
+                        playlist_failed += error
+                        if playlist_channel_mismatch:
+                            break
                     continue
             except (OSError, sqlite3.Error) as error:
                 history.rollback()
@@ -167,6 +221,12 @@ def run_upload(path, force=False):
                 print(f"HISTORY ERROR: Uploaded video {video_id}, but could not record it: {error}")
                 print("Check this YouTube URL before rerunning; the next run may upload it again.")
                 return 1
+            if playlist_id or new_playlist:
+                added, error = add_to_playlist(video_id)
+                playlist_added += added
+                playlist_failed += error
+                if playlist_channel_mismatch:
+                    break
     finally:
         history.close()
 
@@ -175,9 +235,12 @@ def run_upload(path, force=False):
     print(f"Successful: {successful}")
     print(f"Skipped: {skipped}")
     print(f"Failed: {failed}")
+    if playlist_id or new_playlist:
+        print(f"Added to playlist: {playlist_added}")
+        print(f"Playlist additions failed: {playlist_failed}")
     print("----------------------------")
 
-    return 1 if failed else 0
+    return 1 if failed or playlist_failed else 0
 
 
 def normalize_interactive_path(value):
@@ -214,6 +277,39 @@ def run_reset(confirmation):
     return 0
 
 
+def choose_playlist(questionary):
+    action = questionary.select(
+        "Add uploads to a playlist?",
+        choices=["No playlist", "Choose existing playlist", "Create private playlist"]
+    ).ask()
+    if action is None:
+        return None
+    if action == "No playlist":
+        return None, None, None
+    if action == "Create private playlist":
+        title = questionary.text("New private playlist name:").ask()
+        return (None, title.strip(), None) if title and title.strip() else None
+
+    try:
+        client = authenticate_playlists()
+        items = owned_playlists(client)
+    except Exception as error:
+        print(f"Could not list playlists: {error}")
+        return None
+    if not items:
+        print("No selectable playlists found. Create a private playlist instead.")
+        return None
+    choices = [questionary.Choice(
+        title=(f"{item.get('snippet', {}).get('title', 'Untitled')} "
+               f"[{item.get('status', {}).get('privacyStatus', 'unknown')}, "
+               f"{item.get('contentDetails', {}).get('itemCount', 0)} videos] "
+               f"({item['id']})"),
+        value=item["id"]
+    ) for item in items]
+    selected = questionary.select("Choose a playlist:", choices=choices).ask()
+    return (selected, None, client) if selected else None
+
+
 def interactive_menu():
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         print("A path or --history is required when running without a terminal.")
@@ -247,7 +343,11 @@ def interactive_menu():
             continue
         path = questionary.text("Path to video:" if choice == "Upload a video" else "Path to folder:").ask()
         if path:
-            run_upload(normalize_interactive_path(path))
+            selection = choose_playlist(questionary)
+            if selection is not None:
+                playlist_id, new_playlist, client = selection
+                run_upload(normalize_interactive_path(path), playlist_id=playlist_id,
+                           new_playlist=new_playlist, playlist_client=client)
 
 
 def main():
@@ -258,10 +358,19 @@ def main():
     parser.add_argument("--reset-history", action="store_true", help="Export and reset history after typing DELETE")
     parser.add_argument("--limit", type=int, default=20, help="History rows to show (default: 20)")
     parser.add_argument("--force", action="store_true", help="Upload even if already in history")
+    playlist_group = parser.add_mutually_exclusive_group()
+    playlist_group.add_argument("--playlist-id", help="Add uploads to an existing owned playlist")
+    playlist_group.add_argument("--new-playlist", help="Create a private playlist for these uploads")
     args = parser.parse_args()
 
     if args.limit < 1:
         parser.error("--limit must be at least 1")
+    if args.playlist_id is not None and not args.playlist_id.strip():
+        parser.error("--playlist-id cannot be empty")
+    if args.new_playlist is not None and not args.new_playlist.strip():
+        parser.error("--new-playlist cannot be empty")
+    if (args.playlist_id or args.new_playlist) and not args.path:
+        parser.error("playlist options require a video file or directory")
     if args.reset_history:
         if args.history or args.export_history or args.path or args.force:
             parser.error("--reset-history cannot be combined with other actions")
@@ -288,7 +397,8 @@ def main():
             print(f"Could not read history: {error}")
             return 1
     if args.path:
-        return run_upload(args.path, args.force)
+        return run_upload(args.path, args.force, playlist_id=args.playlist_id,
+                          new_playlist=args.new_playlist)
     if args.force:
         parser.error("--force requires a path")
     return interactive_menu()
