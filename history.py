@@ -143,8 +143,9 @@ def show_history(limit=20):
         print(border)
 
 
-def export_history():
-    rows = history_rows()
+def export_history(rows=None):
+    if rows is None:
+        rows = history_rows()
     lines = [
         "# YouTube Private Uploader — Upload History",
         "",
@@ -171,3 +172,25 @@ def export_history():
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
     return EXPORT_FILE, len(rows)
+
+
+def reset_history():
+    db = open_database()
+    try:
+        # This prevents another local process from uploading between the
+        # backup snapshot and deletion.
+        db.execute("BEGIN IMMEDIATE")
+        rows = db.execute("""SELECT uploaded_at, file_name, video_id, account_key
+                             FROM uploads ORDER BY id DESC""").fetchall()
+        if not rows:
+            db.rollback()
+            return None, 0
+        path, count = export_history(rows)
+        db.execute("DELETE FROM uploads")
+        db.commit()
+        return path, count
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

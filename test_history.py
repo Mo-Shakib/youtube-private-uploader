@@ -78,6 +78,17 @@ class UploadHistoryTests(unittest.TestCase):
             self.assertEqual(upload.interactive_menu(), 0)
             run.assert_called_once_with(path)
 
+    def test_menu_reset_prompts_for_delete(self):
+        with patch.object(upload.sys.stdin, "isatty", return_value=True), \
+             patch.object(upload.sys.stdout, "isatty", return_value=True), \
+             patch.object(questionary, "select") as select, \
+             patch.object(questionary, "text") as prompt, \
+             patch.object(upload, "run_reset") as reset:
+            select.return_value.ask.side_effect = ["Reset upload history", "Exit"]
+            prompt.return_value.ask.return_value = "DELETE"
+            self.assertEqual(upload.interactive_menu(), 0)
+            reset.assert_called_once_with("DELETE")
+
     def test_history_is_a_table_and_truncates_long_filenames(self):
         long_name = "A very long video filename that should wrap cleanly.mp4"
         video = Path(self.temp.name) / long_name
@@ -133,6 +144,47 @@ class UploadHistoryTests(unittest.TestCase):
             history.export_history()
         self.assertIn("video\\|part.mp4", export_path.read_text())
         self.assertEqual(export_path.read_text().count("https://youtu.be/second-id"), 2)
+
+    def test_reset_requires_delete_and_exports_before_clearing(self):
+        export_path = Path(self.temp.name) / "upload-history.md"
+        db = history.open_database()
+        try:
+            history.record_upload(db, "profile-key", self.video, "hash", 12, "video-id")
+        finally:
+            db.close()
+
+        with patch.object(history, "EXPORT_FILE", export_path), redirect_stdout(io.StringIO()):
+            self.assertEqual(upload.run_reset("delete"), 0)
+            self.assertFalse(export_path.exists())
+            self.assertEqual(upload.run_reset("DELETE"), 0)
+
+        self.assertIn("https://youtu.be/video-id", export_path.read_text())
+        db = history.open_database()
+        try:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM uploads").fetchone()[0], 0)
+        finally:
+            db.close()
+
+        before = export_path.read_text()
+        with patch.object(history, "EXPORT_FILE", export_path), redirect_stdout(io.StringIO()):
+            self.assertEqual(upload.run_reset("DELETE"), 0)
+        self.assertEqual(export_path.read_text(), before)
+
+    def test_failed_reset_export_preserves_history(self):
+        db = history.open_database()
+        try:
+            history.record_upload(db, "profile-key", self.video, "hash", 12, "video-id")
+        finally:
+            db.close()
+
+        with patch.object(history, "export_history", side_effect=OSError("disk full")):
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(upload.run_reset("DELETE"), 1)
+        db = history.open_database()
+        try:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM uploads").fetchone()[0], 1)
+        finally:
+            db.close()
 
 
 if __name__ == "__main__":

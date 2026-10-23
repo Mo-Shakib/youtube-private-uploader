@@ -160,7 +160,7 @@ All supported video files directly inside the specified directory will be upload
 
 ### Interactive menu and history
 
-Run `python3 ytupload.py` in a terminal to select **Upload a video**, **Upload a folder**, **View upload history**, or **Export history as Markdown** with the arrow keys. The path-based commands above still work without the menu.
+Run `python3 ytupload.py` in a terminal to select **Upload a video**, **Upload a folder**, **View upload history**, **Export history as Markdown**, or **Reset upload history** with the arrow keys. The path-based commands above still work without the menu.
 
 The original `python3 upload.py` command still works. `ytupload.py` runs the same implementation through a shorter entry point.
 
@@ -170,11 +170,14 @@ To view recent uploads directly:
 python3 ytupload.py --history
 python3 ytupload.py --history --limit 50
 python3 ytupload.py --export-history
+python3 ytupload.py --reset-history
 ```
 
 History appears as a table with upload time, Title (filename), YouTube URL, and local profile. Filenames longer than 50 characters show their first 50 characters followed by `.....`.
 
 The export writes the full history to `upload-history.md` in the project folder, with a document title and an export timestamp at the end. Running it again replaces the previous export with a fresh table. This generated file is excluded from Git.
+
+Reset requires typing `DELETE` exactly. The tool first exports the complete history to `upload-history.md`, then clears the local database. If the export fails, no history is cleared. Resetting history means previously uploaded videos may be uploaded again on a later run; it does not delete videos from YouTube or change OAuth credentials.
 
 After a successful upload, the tool records the file's SHA-256 fingerprint, name, path, upload time, YouTube video ID, and URL. On later runs, it skips matching file contents and prints the existing URL. A changed file can be uploaded again. To intentionally upload an unchanged file again, use `python3 ytupload.py --force video.mp4`.
 

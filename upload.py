@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-from history import credential_key, export_history, find_duplicate, fingerprint, open_database, record_upload, show_history
+from history import credential_key, export_history, find_duplicate, fingerprint, open_database, record_upload, reset_history, show_history
 
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
@@ -197,6 +197,23 @@ def run_export():
     return 0
 
 
+def run_reset(confirmation):
+    if confirmation != "DELETE":
+        print("Reset cancelled. History was not changed.")
+        return 0
+    try:
+        path, count = reset_history()
+    except (OSError, sqlite3.Error, ValueError) as error:
+        print(f"Could not reset history: {error}")
+        return 1
+    if count == 0:
+        print("History is already empty. Existing Markdown export was left unchanged.")
+        return 0
+    print(f"Exported {count} upload(s) to {path}")
+    print("Upload history has been reset.")
+    return 0
+
+
 def interactive_menu():
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         print("A path or --history is required when running without a terminal.")
@@ -211,7 +228,7 @@ def interactive_menu():
         choice = questionary.select(
             "What would you like to do?",
             choices=["Upload a video", "Upload a folder", "View upload history",
-                     "Export history as Markdown", "Exit"]
+                     "Export history as Markdown", "Reset upload history", "Exit"]
         ).ask()
         if choice in (None, "Exit"):
             return 0
@@ -224,6 +241,10 @@ def interactive_menu():
         if choice == "Export history as Markdown":
             run_export()
             continue
+        if choice == "Reset upload history":
+            confirmation = questionary.text("Type DELETE to export and reset all upload history:").ask()
+            run_reset(confirmation)
+            continue
         path = questionary.text("Path to video:" if choice == "Upload a video" else "Path to folder:").ask()
         if path:
             run_upload(normalize_interactive_path(path))
@@ -234,12 +255,25 @@ def main():
     parser.add_argument("path", nargs="?", help="Video file or directory")
     parser.add_argument("--history", action="store_true", help="Show recent uploads")
     parser.add_argument("--export-history", action="store_true", help="Export all history to upload-history.md")
+    parser.add_argument("--reset-history", action="store_true", help="Export and reset history after typing DELETE")
     parser.add_argument("--limit", type=int, default=20, help="History rows to show (default: 20)")
     parser.add_argument("--force", action="store_true", help="Upload even if already in history")
     args = parser.parse_args()
 
     if args.limit < 1:
         parser.error("--limit must be at least 1")
+    if args.reset_history:
+        if args.history or args.export_history or args.path or args.force:
+            parser.error("--reset-history cannot be combined with other actions")
+        if not sys.stdin.isatty():
+            print("Reset requires an interactive terminal to type DELETE.")
+            return 2
+        try:
+            confirmation = input("Type DELETE to export and reset all upload history: ")
+        except (EOFError, KeyboardInterrupt):
+            print("\nReset cancelled. History was not changed.")
+            return 0
+        return run_reset(confirmation)
     if args.export_history:
         if args.history or args.path or args.force:
             parser.error("--export-history cannot be combined with --history, a path, or --force")
