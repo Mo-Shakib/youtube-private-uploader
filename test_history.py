@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import history
 import upload
+import questionary
 
 
 class UploadHistoryTests(unittest.TestCase):
@@ -57,6 +58,25 @@ class UploadHistoryTests(unittest.TestCase):
                 self.assertEqual(upload.run_upload(self.video), 1)
                 self.assertEqual(upload.run_upload(self.video), 0)
             self.assertEqual(send.call_count, 2)
+
+    def test_interactive_path_accepts_shell_style_outer_quotes(self):
+        path = "/Volumes/SSD/batfiles/Video with spaces.m3u8.mp4"
+        self.assertEqual(upload.normalize_interactive_path(f"'{path}'"), path)
+        self.assertEqual(upload.normalize_interactive_path(f'"{path}"'), path)
+        self.assertEqual(upload.normalize_interactive_path(path), path)
+        self.assertEqual(upload.normalize_interactive_path("/Videos/Mom's video.mp4"), "/Videos/Mom's video.mp4")
+
+    def test_menu_passes_unquoted_path_to_uploader(self):
+        path = "/Volumes/SSD/batfiles/Video with spaces.m3u8.mp4"
+        with patch.object(upload.sys.stdin, "isatty", return_value=True), \
+             patch.object(upload.sys.stdout, "isatty", return_value=True), \
+             patch.object(questionary, "select") as select, \
+             patch.object(questionary, "text") as text, \
+             patch.object(upload, "run_upload") as run:
+            select.return_value.ask.side_effect = ["Upload a video", "Exit"]
+            text.return_value.ask.return_value = f"'{path}'"
+            self.assertEqual(upload.interactive_menu(), 0)
+            run.assert_called_once_with(path)
 
 
 if __name__ == "__main__":
