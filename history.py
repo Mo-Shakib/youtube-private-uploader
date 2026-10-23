@@ -105,7 +105,20 @@ def show_history(limit=20):
     if not rows:
         print("No uploads recorded yet.")
         return
+    widths = (16, 55, 28, 8)
+    border = "+" + "+".join("-" * (width + 2) for width in widths) + "+"
+
+    def print_row(values):
+        print("| " + " | ".join(f"{value:<{width}}" for value, width in zip(values, widths)) + " |")
+
     print("\nUPLOAD HISTORY (newest first)")
+    print(border)
+    print_row(("Uploaded", "Title (filename)", "YouTube URL", "Profile"))
+    print(border)
     for uploaded_at, file_name, video_id, account_key in rows:
         date = datetime.fromisoformat(uploaded_at).astimezone().strftime("%Y-%m-%d %H:%M")
-        print(f"{date}  {file_name}  https://youtu.be/{video_id}  [profile {account_key[:8]}]")
+        display_name = file_name.replace("\n", " ").replace("\r", " ")
+        if len(display_name) > 50:
+            display_name = display_name[:50] + "....."
+        print_row((date, display_name, f"https://youtu.be/{video_id}", account_key[:8]))
+        print(border)

@@ -171,6 +171,8 @@ python3 ytupload.py --history
 python3 ytupload.py --history --limit 50
 ```
 
+History appears as a table with upload time, Title (filename), YouTube URL, and local profile. Filenames longer than 50 characters show their first 50 characters followed by `.....`.
+
 After a successful upload, the tool records the file's SHA-256 fingerprint, name, path, upload time, YouTube video ID, and URL. On later runs, it skips matching file contents and prints the existing URL. A changed file can be uploaded again. To intentionally upload an unchanged file again, use `python3 ytupload.py --force video.mp4`.
 
 History is stored outside the repository: `~/Library/Application Support/youtube-private-uploader/history.db` on macOS, `%APPDATA%\youtube-private-uploader\history.db` on Windows, or `${XDG_DATA_HOME:-~/.local/share}/youtube-private-uploader/history.db` on Linux. Set `YTUPLOAD_HISTORY_DB` to use another path. Back up this file if you want to preserve the history. It stores no video contents or OAuth tokens.

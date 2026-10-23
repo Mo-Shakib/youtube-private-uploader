@@ -78,6 +78,27 @@ class UploadHistoryTests(unittest.TestCase):
             self.assertEqual(upload.interactive_menu(), 0)
             run.assert_called_once_with(path)
 
+    def test_history_is_a_table_and_truncates_long_filenames(self):
+        long_name = "A very long video filename that should wrap cleanly.mp4"
+        video = Path(self.temp.name) / long_name
+        video.write_bytes(b"video")
+        db = history.open_database()
+        try:
+            history.record_upload(db, "profile-key", video, "hash", 5, "abc123")
+        finally:
+            db.close()
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            history.show_history()
+        lines = output.getvalue().splitlines()
+        self.assertIn("| Uploaded", output.getvalue())
+        self.assertIn("Title (filename)", output.getvalue())
+        self.assertIn("https://youtu.be/abc123", output.getvalue())
+        self.assertIn(long_name[:50] + ".....", output.getvalue())
+        self.assertNotIn(long_name, output.getvalue())
+        self.assertEqual(sum(line.startswith("| ") for line in lines), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
