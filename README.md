@@ -32,8 +32,6 @@ git clone https://github.com/mo-shakib/youtube-private-uploader.git
 cd youtube-private-uploader
 ```
 
-Replace `YOUR_USERNAME` with your GitHub username.
-
 ### 2. Create a virtual environment
 
 **macOS / Linux**
