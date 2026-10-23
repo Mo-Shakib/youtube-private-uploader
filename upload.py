@@ -180,6 +180,13 @@ def run_upload(path, force=False):
     return 1 if failed else 0
 
 
+def normalize_interactive_path(value):
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
+
+
 def interactive_menu():
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         print("A path or --history is required when running without a terminal.")
@@ -205,7 +212,7 @@ def interactive_menu():
             continue
         path = questionary.text("Path to video:" if choice == "Upload a video" else "Path to folder:").ask()
         if path:
-            run_upload(path)
+            run_upload(normalize_interactive_path(path))
 
 
 def main():
