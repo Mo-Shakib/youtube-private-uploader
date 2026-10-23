@@ -1,433 +1,114 @@
 # YouTube Private Uploader
 
-A lightweight Python CLI tool for uploading videos to YouTube as **private videos** using the YouTube Data API v3.
+Upload videos to your YouTube channel as **private** videos from the terminal. Run an interactive menu with arrow keys, or pass a file or folder path directly.
 
-Upload individual videos or entire directories directly from your terminal. The tool automatically uses filenames as video titles, handles Google OAuth authentication, displays upload progress, and reports successful or failed uploads.
+The uploader uses the filename as the video title. It remembers successful uploads, skips duplicate files, and can add a batch to an existing or new private playlist.
 
-## Features
+## Get started
 
-- 🔒 **Private by Default:** All videos are uploaded with private visibility.
-- 📁 **Batch Uploads:** Upload a single video or multiple videos from a directory.
-- 🏷️ **Automatic Titles:** Uses the original filename (without extension) as the YouTube video title.
-- 🔑 **OAuth 2.0 Authentication:** Secure Google authentication with locally cached credentials.
-- 📊 **Upload Progress:** Displays upload progress in the terminal.
-- ✅ **Upload Reports:** Shows successful and failed uploads.
-- 🔗 **Video Links:** Returns a YouTube URL for each successful upload.
-- 🧾 **Upload History:** Records successful uploads in a local SQLite database.
-- ⏭️ **Duplicate Detection:** Skips videos already uploaded with the current OAuth grant, even after a rename or move.
-- ⌨️ **Interactive Menu:** Run without arguments to select actions with arrow keys.
-- 📺 **Optional Playlists:** Choose an owned playlist or create a private playlist for a batch.
-- 💻 **Cross-Platform:** Compatible with macOS, Linux, and Windows.
+You need Python 3.9 or newer, a Google account with a YouTube channel, and a Google Cloud OAuth desktop client. If this is your first time, follow the [step-by-step Google Cloud setup guide](GOOGLE_CLOUD_SETUP.md). It explains how to download `client_secret.json` and enable playlist access.
 
-## Requirements
-
-- Python 3.9 or newer
-- Google account with a YouTube channel
-- Google Cloud project
-- YouTube Data API v3 enabled
-- OAuth 2.0 Desktop Client credentials
-
-## Installation
-
-### 1. Clone the repository
+### 1. Download and install
 
 ```bash
-git clone https://github.com/mo-shakib/youtube-private-uploader.git
+git clone https://github.com/Mo-Shakib/youtube-private-uploader.git
 cd youtube-private-uploader
-```
-
-### 2. Create a virtual environment
-
-**macOS / Linux**
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-**Windows**
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-Install the Python packages listed in `requirements.txt`:
-
-```bash
 python -m pip install -r requirements.txt
 ```
 
-## Google Cloud Configuration
+On Windows, create the environment with `python -m venv .venv` and activate it with `.\.venv\Scripts\Activate.ps1` in PowerShell. Then run the same `python -m pip install -r requirements.txt` command. Use `python` in place of `python3` in the examples below.
 
-### Step 1: Create a Google Cloud project
+### 2. Add your Google credentials
 
-1. Visit [Google Cloud Console](https://console.cloud.google.com/).
-2. Click **New Project**.
-3. Name the project `YouTube Private Uploader`.
-4. Create and select the project.
+Download a **Desktop app** OAuth JSON file using the [Google Cloud setup guide](GOOGLE_CLOUD_SETUP.md). Rename it to `client_secret.json` and place it beside `ytupload.py`.
 
-### Step 2: Enable YouTube Data API v3
-
-1. Navigate to **APIs & Services → Library**.
-2. Search for `YouTube Data API v3`.
-3. Click **Enable**.
-
-### Step 3: Configure OAuth consent
-
-1. Open **Google Auth Platform → Branding**.
-2. Configure the application name and support email.
-3. Set the audience to **External**.
-4. Add your Google account under **Audience → Test users**.
-5. Under **Data Access**, configure the following OAuth scope:
-
-```text
-https://www.googleapis.com/auth/youtube.upload
-```
-
-### Step 4: Create OAuth credentials
-
-1. Navigate to **Google Auth Platform → Clients**.
-2. Click **Create Client**.
-3. Select **Desktop app**.
-4. Name the client `YouTube Private Uploader`.
-5. Download the OAuth credentials JSON file.
-6. Rename it to `client_secret.json`.
-7. Place it in the project's root directory.
-
-**Never commit OAuth credentials or authentication tokens to a public repository.**
-
-## Project Structure
-
-```text
-youtube-private-uploader/
-├── ytupload.py           # Recommended command-line entry point
-├── upload.py             # Upload implementation and original command
-├── history.py             # Local history and duplicate detection
-├── playlists.py           # Optional playlist access
-├── requirements.txt      # Python dependencies
-├── client_secret.json    # Google OAuth client credentials
-├── token.json            # Generated automatically
-├── playlist_token.json   # Generated only when playlist access is authorized
-├── .venv/                # Python virtual environment
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
-The `token.json` file is automatically generated after your first successful authentication.
-
-## Usage
-
-### Upload a single video
+### 3. Start the menu
 
 ```bash
-python3 ytupload.py video.mp4
+python3 ytupload.py
 ```
 
-You can also provide an absolute path:
+Use the arrow keys to choose **Upload a video** or **Upload a folder**, enter the path, and choose whether to use a playlist. On the first use, your browser opens for Google authorization. Choose the YouTube channel you want to use.
 
-```bash
-python3 ytupload.py ~/Movies/vacation.mp4
-```
+If a path contains spaces, you can paste it with surrounding quotes; the menu accepts both quoted and unquoted paths.
 
-The filename becomes the YouTube title.
+## What you can do
 
-**Example:**
+| Task | Command or menu action |
+| --- | --- |
+| Open the arrow-key menu | `python3 ytupload.py` |
+| Upload one video | `python3 ytupload.py "My Video.mp4"` |
+| Upload files in a folder | `python3 ytupload.py ~/Movies/Vacation` |
+| View upload history | `python3 ytupload.py --history` |
+| View more history rows | `python3 ytupload.py --history --limit 50` |
+| Export history to Markdown | `python3 ytupload.py --export-history` |
+| Reset history after an export | `python3 ytupload.py --reset-history` |
 
-```text
-Filename: Summer Vacation 2026.mp4
-YouTube Title: Summer Vacation 2026
-Visibility: Private
-```
+The tool reads supported videos directly inside a folder; it does not search subfolders. Supported extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, and `.m4v`. YouTube determines whether a particular video file can be processed.
 
-### Upload an entire directory
+The original `python3 upload.py` entry point still works. `ytupload.py` is the recommended command.
 
-```bash
-python3 ytupload.py ~/Movies/Vacation
-```
+### Playlists
 
-Example directory:
-
-```text
-Vacation/
-├── Day 1.mp4
-├── Day 2.mov
-├── Beach Sunset.mp4
-└── Hotel Tour.mp4
-```
-
-All supported video files directly inside the specified directory will be uploaded individually.
-
-### Add uploads to a playlist
-
-The interactive menu asks whether to use no playlist, choose one owned by the authorized channel, or create a new **private** playlist. A selected playlist is used for every video in the batch. The tool also adds previously uploaded videos it skips, without uploading those videos again.
-
-For direct commands, use one of:
+After entering a path in the interactive menu, select **No playlist**, **Choose existing playlist**, or **Create private playlist**. The chosen playlist applies to every video in that run. You can also use a direct command:
 
 ```bash
 python3 ytupload.py ~/Movies/Vacation --playlist-id PLAYLIST_ID
 python3 ytupload.py ~/Movies/Vacation --new-playlist "Vacation 2026"
 ```
 
-Playlist additions are reported separately from uploads. If an addition fails, the successful video upload stays in local history; rerun the same command to retry adding it without reuploading it. The tool checks whether each video is already in the playlist before adding it.
+Find an existing playlist ID at the end of its YouTube URL, after `list=`. The playlist must belong to the authorized channel. A new playlist is private. Videos remain private even if you choose an existing playlist with different visibility.
 
-Playlist access uses a separate `playlist_token.json` and requires the `https://www.googleapis.com/auth/youtube.force-ssl` scope in your Google Cloud OAuth Data Access settings. Google will ask you to authorize this broader permission the first time you select a playlist. Ordinary uploads continue using `token.json` and the original `youtube.upload` permission. Keep both token files private.
+Playlist access asks for a separate Google authorization the first time you use it. The [setup guide](GOOGLE_CLOUD_SETUP.md#6-add-playlist-permission-optional) explains the extra permission. If a video is already in upload history, the tool skips uploading it again and can still add it to the playlist. If adding it fails, the upload stays in history; rerun the same command to retry the playlist step.
 
-### Interactive menu and history
+### History and duplicates
 
-Run `python3 ytupload.py` in a terminal to select **Upload a video**, **Upload a folder**, **View upload history**, **Export history as Markdown**, or **Reset upload history** with the arrow keys. After choosing an upload, you can select a playlist. The path-based commands above still work without the menu.
-
-The original `python3 upload.py` command still works. `ytupload.py` runs the same implementation through a shorter entry point.
-
-To view recent uploads directly:
+Successful uploads appear in a terminal table with the upload time, filename, YouTube link, and local profile. The tool compares file contents, so renaming or moving a video does not bypass duplicate detection for the same OAuth grant. To upload an unchanged file again intentionally, add `--force`:
 
 ```bash
-python3 ytupload.py --history
-python3 ytupload.py --history --limit 50
-python3 ytupload.py --export-history
-python3 ytupload.py --reset-history
+python3 ytupload.py --force video.mp4
 ```
 
-History appears as a table with upload time, Title (filename), YouTube URL, and local profile. Filenames longer than 50 characters show their first 50 characters followed by `.....`.
+**Export history** writes `upload-history.md` in the project folder. It includes the full table and a readable export date and time. Exporting again replaces that file. **Reset history** first exports it, then requires you to type `DELETE` exactly before clearing the local database. Resetting does not delete videos from YouTube, but later runs may upload those files again.
 
-The export writes the full history to `upload-history.md` in the project folder, with a document title and an export timestamp at the end. Running it again replaces the previous export with a fresh table. This generated file is excluded from Git.
+History is stored outside the repository:
 
-Reset requires typing `DELETE` exactly. The tool first exports the complete history to `upload-history.md`, then clears the local database. If the export fails, no history is cleared. Resetting history means previously uploaded videos may be uploaded again on a later run; it does not delete videos from YouTube or change OAuth credentials.
+| System | Default history file |
+| --- | --- |
+| macOS | `~/Library/Application Support/youtube-private-uploader/history.db` |
+| Windows | `%APPDATA%\youtube-private-uploader\history.db` |
+| Linux | `~/.local/share/youtube-private-uploader/history.db` (or `$XDG_DATA_HOME/youtube-private-uploader/history.db`) |
 
-After a successful upload, the tool records the file's SHA-256 fingerprint, name, path, upload time, YouTube video ID, and URL. On later runs, it skips matching file contents and prints the existing URL. A changed file can be uploaded again. To intentionally upload an unchanged file again, use `python3 ytupload.py --force video.mp4`.
+You can set `YTUPLOAD_HISTORY_DB` to use another location. Back up this database if you want to keep your duplicate records. Only uploads made with this tool are recorded; it does not import videos already on YouTube. If a network error occurs after YouTube receives an upload, check [YouTube Studio](https://studio.youtube.com/) before retrying.
 
-History is stored outside the repository: `~/Library/Application Support/youtube-private-uploader/history.db` on macOS, `%APPDATA%\youtube-private-uploader\history.db` on Windows, or `${XDG_DATA_HOME:-~/.local/share}/youtube-private-uploader/history.db` on Linux. Set `YTUPLOAD_HISTORY_DB` to use another path. Back up this file if you want to preserve the history. It stores no video contents or OAuth tokens.
+## Authentication and privacy
 
-Only successful uploads made by this version of the tool are recorded. Existing YouTube videos and uploads made before this feature are not discovered automatically. Duplicate checks are scoped to the current OAuth grant; reauthorizing may create a new history profile. If an upload reaches YouTube but the result is lost to a network error, check YouTube Studio before rerunning it.
+The uploader saves two separate local OAuth tokens:
 
-### Supported file extensions
+| File | Used for |
+| --- | --- |
+| `token.json` | Private video uploads |
+| `playlist_token.json` | Listing, creating, and updating playlists, when requested |
 
-The script recognizes:
+Both token files and `client_secret.json` are excluded from Git. Keep them private. If you need to authorize a different channel, remove the relevant token file and run the command again. Use the same channel for uploads and playlists. Reauthorizing uploads may start a new duplicate history profile.
 
-```text
-.mp4
-.mov
-.mkv
-.avi
-.webm
-.m4v
-```
-
-Actual upload compatibility depends on YouTube's supported video formats.
-
-## Authentication
-
-The first time you run the uploader:
-
-1. Your browser opens Google's OAuth authorization page.
-2. Sign in with your Google account.
-3. Select your YouTube channel if prompted.
-4. Grant the requested upload permission.
-5. The application saves authentication credentials in `token.json`.
-
-Subsequent uploads reuse the saved credentials.
-
-### Reauthenticate or switch channels
-
-Delete the existing token:
-
-```bash
-rm token.json
-```
-
-Run the uploader again:
-
-```bash
-python3 ytupload.py video.mp4
-```
-
-Google will request authorization again.
-
-**Note:** If your Google account has multiple YouTube channels, ensure that you authorize the intended channel.
-
-## Example Output
-
-```text
-Uploading: vacation
-Progress: 100%
-
-SUCCESS: vacation
-URL: https://youtu.be/XXXXXXXXXXX
-Privacy: Private
-
-----------------------------
-UPLOAD SUMMARY
-Successful: 1
-Failed: 0
-----------------------------
-```
-
-For directory uploads, the script processes each supported video and displays a final summary.
-
-## Viewing Uploaded Videos
-
-Private videos do not appear on your channel's public-facing Home or Videos tabs.
-
-To access them:
-
-1. Open [YouTube Studio](https://studio.youtube.com/).
-2. Select the correct YouTube channel.
-3. Navigate to **Content → Videos**.
-4. Find your uploaded videos with **Private** visibility.
-
-You can also open the video URLs returned by the script while authenticated to the authorized YouTube channel.
-
-## API Quotas and Limitations
-
-The YouTube Data API is available without charge within its standard quota allocation.
-
-However, several limitations apply:
-
-| Feature | Limit |
-|---|---|
-| API access | Free within standard quota |
-| Private uploads | Supported |
-| Maximum upload size | 256 GB |
-| Maximum video duration | 12 hours for verified accounts |
-| Unverified account duration | 15 minutes |
-| API upload quota | Subject to Google Cloud project limits |
-| Total storage | No published fixed storage capacity |
-
-Google may impose additional daily upload limits based on account history, verification status, and API usage.
-
-### OAuth Testing Mode
-
-Google OAuth applications in Testing mode generally issue refresh tokens that expire after seven days when requesting YouTube upload permissions.
-
-If authentication expires, delete `token.json` and authenticate again.
-
-### Private Upload Restriction
-
-Videos uploaded through unverified API projects created after July 28, 2020, are restricted to private visibility until the project completes Google's required API compliance audit.
-
-This does not prevent the tool from being used for private video uploads.
-
-## Security
-
-The project uses OAuth 2.0 rather than storing your Google account password.
-
-Keep the following files private:
-
-- `client_secret.json`: Contains Google OAuth client configuration.
-- `token.json`: Contains access and refresh tokens.
-- `playlist_token.json`: Contains tokens for the broader optional playlist permission.
-
-### Recommended .gitignore
-
-```gitignore
-# Authentication
-client_secret.json
-token.json
-
-# Virtual environment
-.venv/
-venv/
-
-# Python
-__pycache__/
-*.py[cod]
-
-# macOS
-.DS_Store
-
-# IDE
-.vscode/
-.idea/
-```
-
-Never share your authentication tokens or commit them to version control.
-
-## Known Limitations
-
-The current implementation has a few limitations:
-
-- No automatic retries after failed uploads.
-- No persistent resumable session recovery after restarting the script.
-- Directory uploads are not recursive.
-- Uploaded videos are always private.
-- Authentication is tied to the authorized YouTube channel.
-- No automatic deletion or archiving of local files.
+Private uploads do not appear on the public channel page. View them in [YouTube Studio → Content](https://studio.youtube.com/) while signed in to the correct channel. Keep a separate copy of any irreplaceable original video files.
 
 ## Troubleshooting
 
-### Authentication failed: Expecting value
+| Problem | What to check |
+| --- | --- |
+| `Path does not exist` | Check the path and drive connection. In the menu, pasted paths may include surrounding quotes. |
+| Google says access is denied | Confirm the YouTube Data API is enabled and your Google account is an OAuth test user. See the [setup guide](GOOGLE_CLOUD_SETUP.md#troubleshooting). |
+| `redirect_uri_mismatch` | Download credentials for an OAuth client whose type is **Desktop app**. |
+| Wrong YouTube channel | Remove the relevant token file and authorize again, selecting the intended channel. |
+| Token is empty, malformed, or expired | Remove the affected `token.json` or `playlist_token.json` and authorize again. OAuth apps in Testing mode may require reauthorization after seven days. |
+| Playlist addition failed | Confirm the playlist belongs to the authorized channel, then rerun the command. A successful upload will be skipped and the playlist addition retried. |
 
-This usually indicates an empty or malformed JSON file.
-
-If `token.json` is empty or corrupted, delete it:
-
-```bash
-rm -f token.json
-```
-
-Then rerun the uploader.
-
-### Error 403: Access Denied
-
-Check that:
-
-- YouTube Data API v3 is enabled.
-- Your Google account is listed as an OAuth test user.
-- The correct OAuth permissions are configured.
-- Your Google account has access to a YouTube channel.
-
-### Error 400: redirect_uri_mismatch
-
-Ensure that your OAuth client was created with the application type **Desktop app**.
-
-### Video not visible on channel
-
-Private videos are not displayed on public-facing channel pages.
-
-Open **YouTube Studio → Content** to view uploaded private videos.
-
-## Roadmap
-
-Potential future improvements:
-
-- [x] SQLite-based upload history
-- [x] Duplicate video detection
-- [ ] Automatic retry mechanism
-- [ ] Persistent resumable uploads
-- [ ] Recursive directory uploads
-- [ ] Multiple YouTube channel profiles
-- [ ] Automatic folder monitoring
-- [ ] Upload logs and statistics
-- [ ] Installable CLI command (`ytupload`)
-- [ ] Optional upload scheduling
-
-## Disclaimer
-
-This project uses YouTube as a convenient platform for privately hosting personal videos.
-
-**YouTube should not be treated as a guaranteed backup or archival storage service.**
-
-YouTube processes and transcodes uploaded videos, which may affect quality and metadata. Content remains subject to YouTube's Terms of Service, community guidelines, and applicable account restrictions.
-
-For irreplaceable videos, maintain an additional backup of the original files.
-
-## References
-
-- [YouTube Data API v3](https://developers.google.com/youtube/v3)
-- [Upload a Video](https://developers.google.com/youtube/v3/guides/uploading_a_video)
-- [OAuth 2.0 for Desktop Applications](https://developers.google.com/identity/protocols/oauth2/native-app)
-- [YouTube API Quota](https://developers.google.com/youtube/v3/determine_quota_cost)
-- [YouTube Studio](https://studio.youtube.com/)
+Google Cloud's quota and YouTube's account limits can also restrict uploads. Check your project's [YouTube Data API quota](https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas) and the API error message when an upload fails.
 
 ## License
 
-MIT License
-
-Copyright (c) 2026 Mohamed Shakib
-
----
-
-**Built with Python and YouTube Data API v3.**
+[MIT](LICENSE)
