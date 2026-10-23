@@ -50,8 +50,10 @@ python -m venv .venv
 
 ### 3. Install dependencies
 
+Install the Python packages listed in `requirements.txt`:
+
 ```bash
-pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
+python -m pip install -r requirements.txt
 ```
 
 ## Google Cloud Configuration
@@ -98,10 +100,12 @@ https://www.googleapis.com/auth/youtube.upload
 ```text
 youtube-private-uploader/
 ├── upload.py
+├── requirements.txt      # Python dependencies
 ├── client_secret.json    # Google OAuth client credentials
 ├── token.json            # Generated automatically
 ├── .venv/                # Python virtual environment
 ├── .gitignore
+├── LICENSE
 └── README.md
 ```
 
@@ -373,7 +377,7 @@ For irreplaceable videos, maintain an additional backup of the original files.
 
 MIT License
 
-Copyright (c) 2026
+Copyright (c) 2026 Mohamed Shakib
 
 ---
 
