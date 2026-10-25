@@ -66,6 +66,13 @@ class UploadHistoryTests(unittest.TestCase):
         self.assertEqual(upload.normalize_interactive_path(path), path)
         self.assertEqual(upload.normalize_interactive_path("/Videos/Mom's video.mp4"), "/Videos/Mom's video.mp4")
 
+    def test_interactive_path_unescapes_shell_backslashes(self):
+        path = "/Users/shakib/Projects/youtube-uploader/upload/Jealous Big StepSister Takes My Virginity.mp4"
+        escaped = path.replace(" ", r"\ ")
+        self.assertEqual(upload.normalize_interactive_path(escaped), path)
+        self.assertEqual(upload.normalize_interactive_path(f'"{escaped}"'), path)
+        self.assertEqual(upload.normalize_interactive_path(r"/Videos/Mom\'s video.mp4"), "/Videos/Mom's video.mp4")
+
     def test_menu_passes_unquoted_path_to_uploader(self):
         path = "/Volumes/SSD/batfiles/Video with spaces.m3u8.mp4"
         with patch.object(upload.sys.stdin, "isatty", return_value=True), \

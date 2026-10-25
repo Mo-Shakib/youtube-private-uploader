@@ -243,11 +243,32 @@ def run_upload(path, force=False, playlist_id=None, new_playlist=None, playlist_
     return 1 if failed or playlist_failed else 0
 
 
+def unescape_shell_path(value):
+    """Turn a path pasted from a shell into the filename on disk.
+
+    Terminal drag-and-drop and tab completion escape spaces and other
+    characters with a backslash. The interactive prompt is not a shell, so
+    those backslashes would otherwise be treated as part of the name.
+    """
+    if "\\" not in value:
+        return value
+    chars = []
+    index = 0
+    while index < len(value):
+        if value[index] == "\\" and index + 1 < len(value):
+            chars.append(value[index + 1])
+            index += 2
+            continue
+        chars.append(value[index])
+        index += 1
+    return "".join(chars)
+
+
 def normalize_interactive_path(value):
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-        return value[1:-1]
-    return value
+        value = value[1:-1]
+    return unescape_shell_path(value)
 
 
 def run_export():
